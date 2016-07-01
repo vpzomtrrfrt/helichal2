@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -22,27 +23,32 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private static float HOLE_WIDTH = 0.3f;
     private static float PLATFORM_HEIGHT = 0.07f;
     private static int[] COLORS = {Color.RED, Color.GREEN, Color.CYAN, 0xFFFFA500};
+    private static float MAX_TEXT_DIST = 0.12f;
 
     private float x;
     private List<float[]> platforms;
     private int score;
     private float y = 0;
     private float speed = 0.005f;
-    private GameState state;
-    private int charColor;
+    private GameState state = GameState.HOME;
+    private int charColor = COLORS[0];
+    private float mainTextPos = 0.5f;
+    private float mainTextDir = 0.0004f;
 
     private float[] gravity;
     private float[] magnetic;
     private float[] rMat = new float[9];
     private float[] iMat = new float[9];
     private float tilt = 0;
+    private int width;
+    private int height;
 
     private long lastTime;
     private Random rand = new Random();
+    private int deviceDefaultRotation;
 
     public GameView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        startGame();
         Thread thread = new Thread(new Painter());
         thread.start();
     }
@@ -58,7 +64,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
             if (SensorManager.getRotationMatrix(rMat, iMat, gravity, magnetic)) {
                 float[] orientation = new float[3];
                 SensorManager.getOrientation(rMat, orientation);
-                tilt = orientation[2] * 0.1f;
+                tilt = orientation[deviceDefaultRotation==3?1:2] * 0.1f;
                 if (tilt > MAX_TILT) {
                     tilt = MAX_TILT;
                 } else if (tilt < -MAX_TILT) {
@@ -73,26 +79,34 @@ public class GameView extends SurfaceView implements SensorEventListener {
 
     }
 
+    public void setDeviceDefaultRotation(int deviceDefaultRotation) {
+        this.deviceDefaultRotation = deviceDefaultRotation;
+        System.out.println(deviceDefaultRotation);
+        System.out.println("LAWL");
+    }
+
     private class Painter implements Runnable {
         @Override
         public void run() {
             while (true) {
                 Canvas cnvs = getHolder().lockCanvas();
                 if (cnvs != null) {
-                    int width = cnvs.getWidth();
-                    int height = cnvs.getHeight();
+                    width = cnvs.getWidth();
+                    height = cnvs.getHeight();
                     float ratio = ((float) height) / width;
                     updateGame(ratio);
-                    float psz = width * PSC;
 
                     cnvs.drawColor(Color.WHITE);
-                    drawPlayer(cnvs, width, height);
 
-                    Paint platformPaint = new Paint();
-                    platformPaint.setColor(Color.BLUE);
-                    for (float[] platform : platforms) {
-                        cnvs.drawRect(0, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, platform[0] * width, (ratio - platform[1]) * width, platformPaint);
-                        cnvs.drawRect((platform[0] + HOLE_WIDTH) * width, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, width, (ratio - platform[1]) * width, platformPaint);
+                    if (state != GameState.HOME) {
+                        drawPlayer(cnvs, x, y, PSC);
+
+                        Paint platformPaint = new Paint();
+                        platformPaint.setColor(Color.BLUE);
+                        for (float[] platform : platforms) {
+                            cnvs.drawRect(0, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, platform[0] * width, (ratio - platform[1]) * width, platformPaint);
+                            cnvs.drawRect((platform[0] + HOLE_WIDTH) * width, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, width, (ratio - platform[1]) * width, platformPaint);
+                        }
                     }
 
                     if (state == GameState.DEAD) {
@@ -104,8 +118,17 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         cnvs.drawText("You died!", width / 2, height / 2 - width * .15f, textPaint);
                         textPaint.setTextSize(width / 12);
                         cnvs.drawText("Score: " + score, width / 2, height / 2, textPaint);
-                        textPaint.setTextSize(width / 15);
-                        cnvs.drawText("Touch to restart", width / 2, height / 2 + width * .15f, textPaint);
+                        drawButton(cnvs, "play", width / 3, height / 2 + width * .1f, width / 6);
+                    }
+
+                    if (state == GameState.HOME) {
+                        drawPlayer(cnvs, 0.5f - PSC, ((float) height) / (width * 3 / 2), PSC * 2);
+                        Paint textPaint = new Paint();
+                        textPaint.setColor(Color.BLACK);
+                        textPaint.setTextSize(width / 5);
+                        textPaint.setTextAlign(Paint.Align.CENTER);
+                        cnvs.drawText("Helichal", width * mainTextPos, height / 2, textPaint);
+                        drawButton(cnvs, "play", width / 3, height / 2 + width / 10, width / 6);
                     }
 
                     getHolder().unlockCanvasAndPost(cnvs);
@@ -113,22 +136,53 @@ public class GameView extends SurfaceView implements SensorEventListener {
             }
         }
 
-        private void drawPlayer(Canvas cnvs, float width, float height) {
+        private void drawButton(Canvas cnvs, String type, float x, float y, float sz) {
+            Paint bgPaint = new Paint();
+            Paint fgPaint = new Paint();
+            fgPaint.setStyle(Paint.Style.FILL_AND_STROKE);
+            switch (type) {
+                case "play":
+                    bgPaint.setColor(Color.YELLOW);
+                    fgPaint.setColor(Color.GREEN);
+                    break;
+                default:
+                    bgPaint.setColor(Color.BLACK);
+                    fgPaint.setColor(Color.WHITE);
+                    break;
+            }
+
+            cnvs.drawRect(x, y + sz / 8, x + sz * 2, y + sz * 7 / 8, bgPaint);
+            cnvs.drawRect(x + sz / 8, y, x + sz * 15 / 8, y + sz / 8, bgPaint);
+            cnvs.drawRect(x + sz / 8, y + sz * 7 / 8, x + sz * 15 / 8, y + sz, bgPaint);
+
+            switch (type) {
+                case "play":
+                    Path path = new Path();
+                    path.moveTo(x + sz * 3 / 4, y + sz * 3 / 16);
+                    path.lineTo(x + sz * 5 / 4, y + sz / 2);
+                    path.lineTo(x + sz * 3 / 4, y + sz * 13 / 16);
+                    path.close();
+                    cnvs.drawPath(path, fgPaint);
+                    break;
+            }
+        }
+
+        private void drawPlayer(Canvas cnvs, float x, float y, float sc) {
             Paint charPaint = new Paint();
             charPaint.setColor(charColor);
-            cnvs.drawRect(x * width, height - (PSC + y) * width, (x + PSC) * width, height - y * width, charPaint);
-            float eyeh = PSC/5;
+            cnvs.drawRect(x * width, height - (sc + y) * width, (x + sc) * width, height - y * width, charPaint);
+            float eyeh = sc / 5;
             Paint irisPaint = new Paint();
             irisPaint.setColor(Color.YELLOW);
-            cnvs.drawRect((x+PSC/5)*width, height-(y+PSC-eyeh)*width, (x+PSC*.4f)*width, height-(y+PSC-eyeh*2)*width, irisPaint);
-            cnvs.drawRect((x+PSC*.6f)*width, height-(y+PSC-eyeh)*width, (x+PSC*.8f)*width, height-(y+PSC-eyeh*2)*width, irisPaint);
+            cnvs.drawRect((x + sc / 5) * width, height - (y + sc - eyeh) * width, (x + sc * .4f) * width, height - (y + sc - eyeh * 2) * width, irisPaint);
+            cnvs.drawRect((x + sc * .6f) * width, height - (y + sc - eyeh) * width, (x + sc * .8f) * width, height - (y + sc - eyeh * 2) * width, irisPaint);
             Paint pupilPaint = new Paint();
             pupilPaint.setColor(Color.BLACK);
-            float dir = tilt/MAX_TILT;
-            float px = .25f+dir*.05f;
-            float py = .22f+Math.abs(dir)*.03f;
-            cnvs.drawRect((x+px*PSC)*width, height-(y+PSC*(1-py))*width, (x+PSC*(px+.1f))*width, height-(y+PSC*(.9f-py))*width, pupilPaint);
-            cnvs.drawRect((x+(px+.4f)*PSC)*width, height-(y+PSC*(1-py))*width, (x+PSC*(px+.5f))*width, height-(y+PSC*(.9f-py))*width, pupilPaint);
+            float dir = tilt / MAX_TILT;
+            float px = .25f + dir * .05f;
+            float py = .22f + Math.abs(dir) * .03f;
+            cnvs.drawRect((x + px * sc) * width, height - (y + sc * (1 - py)) * width, (x + sc * (px + .1f)) * width, height - (y + sc * (.9f - py)) * width, pupilPaint);
+            cnvs.drawRect((x + (px + .4f) * sc) * width, height - (y + sc * (1 - py)) * width, (x + sc * (px + .5f)) * width, height - (y + sc * (.9f - py)) * width, pupilPaint);
         }
     }
 
@@ -158,6 +212,15 @@ public class GameView extends SurfaceView implements SensorEventListener {
                 platforms.remove(0);
                 score++;
             }
+        } else if (state == GameState.HOME) {
+            mainTextPos += mainTextDir * time;
+            if (mainTextPos > .5f + MAX_TEXT_DIST) {
+                mainTextPos = .5f + MAX_TEXT_DIST;
+                mainTextDir = -Math.abs(mainTextDir);
+            } else if (mainTextPos < .5f - MAX_TEXT_DIST) {
+                mainTextPos = .5f - MAX_TEXT_DIST;
+                mainTextDir = Math.abs(mainTextDir);
+            }
         }
     }
 
@@ -175,8 +238,8 @@ public class GameView extends SurfaceView implements SensorEventListener {
             float dsc = (score + platforms.size()) / 200f;
             float dist = Math.abs(npx - lp[0]);
             float playerPart = PSC * (1 - dsc);
-            float distPart = dist / (speed * 100);
-            float randomPart = rand.nextFloat() / 3;
+            float distPart = dist / (speed * 200);
+            float randomPart = rand.nextFloat() / 6;
             float nph = lp[1] + Math.max(PLATFORM_HEIGHT, Math.min(playerPart + distPart + randomPart, 1.2f));
             platforms.add(new float[]{npx, nph});
         }
@@ -188,6 +251,10 @@ public class GameView extends SurfaceView implements SensorEventListener {
         platforms.add(new float[]{0.5f - HOLE_WIDTH / 2, PSC * 3});
         score = 0;
         state = GameState.PLAYING;
+        pickColor();
+    }
+
+    private void pickColor() {
         charColor = COLORS[rand.nextInt(COLORS.length)];
     }
 
@@ -195,10 +262,38 @@ public class GameView extends SurfaceView implements SensorEventListener {
     public boolean onTouchEvent(MotionEvent event) {
         boolean tr = super.onTouchEvent(event);
         if (tr) return true;
+        float ex = event.getX();
+        float ey = event.getY();
         if (state == GameState.DEAD) {
-            startGame();
-            return true;
+            if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 10 && ey < height / 2 + width / 10 + width / 6) {
+                startGame();
+                return true;
+            }
+        } else if (state == GameState.HOME) {
+            if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 10 && ey < height / 2 + width / 10 + width / 6) {
+                startGame();
+                return true;
+            }
         }
         return false;
+    }
+
+    private float[] adjustOrientation(float[] eventValues) {
+        // see http://stackoverflow.com/a/15552017/2533397
+
+        float[] adjustedValues = new float[3];
+
+        final int axisSwap[][] = {
+                {1, -1, 0, 1},     // ROTATION_0
+                {-1, -1, 1, 0},     // ROTATION_90
+                {-1, 1, 0, 1},     // ROTATION_180
+                {1, 1, 1, 0}}; // ROTATION_270
+
+        final int[] as = axisSwap[deviceDefaultRotation];
+        adjustedValues[0] = (float) as[0] * eventValues[as[2]];
+        adjustedValues[1] = (float) as[1] * eventValues[as[3]];
+        adjustedValues[2] = eventValues[2];
+
+        return adjustedValues;
     }
 }
