@@ -21,6 +21,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private static float MAX_TILT = 0.1f;
     private static float HOLE_WIDTH = 0.3f;
     private static float PLATFORM_HEIGHT = 0.07f;
+    private static int[] COLORS = {Color.RED, Color.GREEN, Color.CYAN, 0xFFFFA500};
 
     private float x;
     private List<float[]> platforms;
@@ -28,6 +29,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private float y = 0;
     private float speed = 0.005f;
     private GameState state;
+    private int charColor;
 
     private float[] gravity;
     private float[] magnetic;
@@ -84,9 +86,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
                     float psz = width * PSC;
 
                     cnvs.drawColor(Color.WHITE);
-                    Paint charPaint = new Paint();
-                    charPaint.setColor(Color.RED);
-                    cnvs.drawRect(x * width, height - psz - y*width, x * width + psz - y*width, height, charPaint);
+                    drawPlayer(cnvs, width, height);
 
                     Paint platformPaint = new Paint();
                     platformPaint.setColor(Color.BLUE);
@@ -95,22 +95,40 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         cnvs.drawRect((platform[0] + HOLE_WIDTH) * width, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, width, (ratio - platform[1]) * width, platformPaint);
                     }
 
-                    if(state == GameState.DEAD) {
+                    if (state == GameState.DEAD) {
                         cnvs.drawColor(Color.argb(140, 255, 255, 255));
                         Paint textPaint = new Paint();
                         textPaint.setColor(Color.BLACK);
                         textPaint.setTextAlign(Paint.Align.CENTER);
-                        textPaint.setTextSize(width/7);
-                        cnvs.drawText("You died!", width/2, height/2-width*.15f, textPaint);
-                        textPaint.setTextSize(width/12);
-                        cnvs.drawText("Score: "+score, width/2, height/2, textPaint);
-                        textPaint.setTextSize(width/15);
-                        cnvs.drawText("Touch to restart", width/2, height/2+width*.15f, textPaint);
+                        textPaint.setTextSize(width / 7);
+                        cnvs.drawText("You died!", width / 2, height / 2 - width * .15f, textPaint);
+                        textPaint.setTextSize(width / 12);
+                        cnvs.drawText("Score: " + score, width / 2, height / 2, textPaint);
+                        textPaint.setTextSize(width / 15);
+                        cnvs.drawText("Touch to restart", width / 2, height / 2 + width * .15f, textPaint);
                     }
 
                     getHolder().unlockCanvasAndPost(cnvs);
                 }
             }
+        }
+
+        private void drawPlayer(Canvas cnvs, float width, float height) {
+            Paint charPaint = new Paint();
+            charPaint.setColor(charColor);
+            cnvs.drawRect(x * width, height - (PSC + y) * width, (x + PSC) * width, height - y * width, charPaint);
+            float eyeh = PSC/5;
+            Paint irisPaint = new Paint();
+            irisPaint.setColor(Color.YELLOW);
+            cnvs.drawRect((x+PSC/5)*width, height-(y+PSC-eyeh)*width, (x+PSC*.4f)*width, height-(y+PSC-eyeh*2)*width, irisPaint);
+            cnvs.drawRect((x+PSC*.6f)*width, height-(y+PSC-eyeh)*width, (x+PSC*.8f)*width, height-(y+PSC-eyeh*2)*width, irisPaint);
+            Paint pupilPaint = new Paint();
+            pupilPaint.setColor(Color.BLACK);
+            float dir = tilt/MAX_TILT;
+            float px = .25f+dir*.05f;
+            float py = .22f+Math.abs(dir)*.03f;
+            cnvs.drawRect((x+px*PSC)*width, height-(y+PSC*(1-py))*width, (x+PSC*(px+.1f))*width, height-(y+PSC*(.9f-py))*width, pupilPaint);
+            cnvs.drawRect((x+(px+.4f)*PSC)*width, height-(y+PSC*(1-py))*width, (x+PSC*(px+.5f))*width, height-(y+PSC*(.9f-py))*width, pupilPaint);
         }
     }
 
@@ -119,7 +137,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
         long time = newTime - lastTime;
         lastTime = newTime;
 
-        if(state == GameState.PLAYING) {
+        if (state == GameState.PLAYING) {
             genPlatforms(height);
 
             x += tilt * time * speed * 1.5;
@@ -158,7 +176,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
             float dist = Math.abs(npx - lp[0]);
             float playerPart = PSC * (1 - dsc);
             float distPart = dist / (speed * 100);
-            float randomPart = rand.nextFloat()/3;
+            float randomPart = rand.nextFloat() / 3;
             float nph = lp[1] + Math.max(PLATFORM_HEIGHT, Math.min(playerPart + distPart + randomPart, 1.2f));
             platforms.add(new float[]{npx, nph});
         }
@@ -167,16 +185,17 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private void startGame() {
         x = 0.5f - PSC / 2;
         platforms = new ArrayList<>();
-        platforms.add(new float[]{0.5f-HOLE_WIDTH/2, PSC*3});
+        platforms.add(new float[]{0.5f - HOLE_WIDTH / 2, PSC * 3});
         score = 0;
         state = GameState.PLAYING;
+        charColor = COLORS[rand.nextInt(COLORS.length)];
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         boolean tr = super.onTouchEvent(event);
-        if(tr) return true;
-        if(state == GameState.DEAD) {
+        if (tr) return true;
+        if (state == GameState.DEAD) {
             startGame();
             return true;
         }
