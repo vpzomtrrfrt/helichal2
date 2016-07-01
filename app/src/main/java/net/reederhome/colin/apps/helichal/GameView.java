@@ -64,7 +64,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
             if (SensorManager.getRotationMatrix(rMat, iMat, gravity, magnetic)) {
                 float[] orientation = new float[3];
                 SensorManager.getOrientation(rMat, orientation);
-                tilt = orientation[deviceDefaultRotation==3?1:2] * 0.1f;
+                tilt = orientation[deviceDefaultRotation == 3 ? 1 : 2] * 0.1f;
                 if (tilt > MAX_TILT) {
                     tilt = MAX_TILT;
                 } else if (tilt < -MAX_TILT) {
@@ -118,7 +118,8 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         cnvs.drawText("You died!", width / 2, height / 2 - width * .15f, textPaint);
                         textPaint.setTextSize(width / 12);
                         cnvs.drawText("Score: " + score, width / 2, height / 2, textPaint);
-                        drawButton(cnvs, "play", width / 3, height / 2 + width * .1f, width / 6);
+                        drawButton(cnvs, "play", width / 3, height / 2 + width * .05f, width / 6);
+                        drawButton(cnvs, "home", width / 3, height / 2 + width * .25f, width / 6);
                     }
 
                     if (state == GameState.HOME) {
@@ -155,15 +156,33 @@ public class GameView extends SurfaceView implements SensorEventListener {
             cnvs.drawRect(x + sz / 8, y, x + sz * 15 / 8, y + sz / 8, bgPaint);
             cnvs.drawRect(x + sz / 8, y + sz * 7 / 8, x + sz * 15 / 8, y + sz, bgPaint);
 
+            Path path = null;
             switch (type) {
                 case "play":
-                    Path path = new Path();
+                    path = new Path();
                     path.moveTo(x + sz * 3 / 4, y + sz * 3 / 16);
                     path.lineTo(x + sz * 5 / 4, y + sz / 2);
                     path.lineTo(x + sz * 3 / 4, y + sz * 13 / 16);
                     path.close();
-                    cnvs.drawPath(path, fgPaint);
                     break;
+                case "home":
+                    path = new Path();
+                    path.moveTo(x + sz * 5 / 8, y + sz * 13 / 16);
+                    path.lineTo(x + sz * 5 / 8, y + sz * 7 / 16);
+                    path.lineTo(x + sz, y + sz / 8);
+                    path.lineTo(x + sz * 11 / 8, y + sz * 7 / 16);
+                    path.lineTo(x + sz * 11 / 8, y + sz * 13 / 16);
+                    path.close();
+                    break;
+            }
+            if (path != null) {
+                cnvs.drawPath(path, fgPaint);
+            }
+
+            switch (type) {
+                case "home":
+                    cnvs.drawRect(x + sz * 7 / 8, y + sz / 2, x + sz * 9 / 8, y + sz * 3 / 4, bgPaint);
+                    cnvs.drawRect(x+sz*15/16, y+sz/4, x+sz*17/16, y+sz*3/8, bgPaint);
             }
         }
 
@@ -262,11 +281,15 @@ public class GameView extends SurfaceView implements SensorEventListener {
     public boolean onTouchEvent(MotionEvent event) {
         boolean tr = super.onTouchEvent(event);
         if (tr) return true;
+        if(event.getActionMasked() != MotionEvent.ACTION_DOWN) return false;
         float ex = event.getX();
         float ey = event.getY();
         if (state == GameState.DEAD) {
-            if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 10 && ey < height / 2 + width / 10 + width / 6) {
+            if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 20 && ey < height / 2 + width / 20 + width / 6) {
                 startGame();
+                return true;
+            } else if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 4 && ey < height / 2 + width / 4 + width / 6) {
+                state = GameState.HOME;
                 return true;
             }
         } else if (state == GameState.HOME) {
@@ -278,22 +301,4 @@ public class GameView extends SurfaceView implements SensorEventListener {
         return false;
     }
 
-    private float[] adjustOrientation(float[] eventValues) {
-        // see http://stackoverflow.com/a/15552017/2533397
-
-        float[] adjustedValues = new float[3];
-
-        final int axisSwap[][] = {
-                {1, -1, 0, 1},     // ROTATION_0
-                {-1, -1, 1, 0},     // ROTATION_90
-                {-1, 1, 0, 1},     // ROTATION_180
-                {1, 1, 1, 0}}; // ROTATION_270
-
-        final int[] as = axisSwap[deviceDefaultRotation];
-        adjustedValues[0] = (float) as[0] * eventValues[as[2]];
-        adjustedValues[1] = (float) as[1] * eventValues[as[3]];
-        adjustedValues[2] = eventValues[2];
-
-        return adjustedValues;
-    }
 }
