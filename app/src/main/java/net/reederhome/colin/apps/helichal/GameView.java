@@ -9,6 +9,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.SurfaceView;
 
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private int score;
     private float y = 0;
     private float speed = 0.005f;
+    private GameState state;
 
     private float[] gravity;
     private float[] magnetic;
@@ -93,6 +95,19 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         cnvs.drawRect((platform[0] + HOLE_WIDTH) * width, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, width, (ratio - platform[1]) * width, platformPaint);
                     }
 
+                    if(state == GameState.DEAD) {
+                        cnvs.drawColor(Color.argb(140, 255, 255, 255));
+                        Paint textPaint = new Paint();
+                        textPaint.setColor(Color.BLACK);
+                        textPaint.setTextAlign(Paint.Align.CENTER);
+                        textPaint.setTextSize(width/7);
+                        cnvs.drawText("You died!", width/2, height/2-width*.15f, textPaint);
+                        textPaint.setTextSize(width/12);
+                        cnvs.drawText("Score: "+score, width/2, height/2, textPaint);
+                        textPaint.setTextSize(width/15);
+                        cnvs.drawText("Touch to restart", width/2, height/2+width*.15f, textPaint);
+                    }
+
                     getHolder().unlockCanvasAndPost(cnvs);
                 }
             }
@@ -104,30 +119,32 @@ public class GameView extends SurfaceView implements SensorEventListener {
         long time = newTime - lastTime;
         lastTime = newTime;
 
-        genPlatforms(height);
+        if(state == GameState.PLAYING) {
+            genPlatforms(height);
 
-        x += tilt * time * speed * 1.5;
-        if (x > 1 - PSC) {
-            x = 1 - PSC;
-        } else if (x < 0) {
-            x = 0;
-        }
-
-        for (int i = 0; i < platforms.size(); i++) {
-            float[] platform = platforms.get(i);
-            platform[1] -= speed;
-            if (y + PSC > platform[1] && y < platform[1] + PLATFORM_HEIGHT && (x <= platform[0] || x + PSC >= platform[0] + HOLE_WIDTH)) {
-                die();
+            x += tilt * time * speed * 1.5;
+            if (x > 1 - PSC) {
+                x = 1 - PSC;
+            } else if (x < 0) {
+                x = 0;
             }
-        }
-        if(platforms.get(0)[1] < -PLATFORM_HEIGHT) {
-            platforms.remove(0);
-            score++;
+
+            for (int i = 0; i < platforms.size(); i++) {
+                float[] platform = platforms.get(i);
+                platform[1] -= speed;
+                if (y + PSC > platform[1] && y < platform[1] + PLATFORM_HEIGHT && (x <= platform[0] || x + PSC >= platform[0] + HOLE_WIDTH)) {
+                    die();
+                }
+            }
+            if (platforms.get(0)[1] < -PLATFORM_HEIGHT) {
+                platforms.remove(0);
+                score++;
+            }
         }
     }
 
     private void die() {
-        System.out.println("YOU SHOULD BE DEAD");
+        state = GameState.DEAD;
     }
 
     private void genPlatforms(float height) {
@@ -150,7 +167,19 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private void startGame() {
         x = 0.5f - PSC / 2;
         platforms = new ArrayList<>();
-        platforms.add(new float[]{x, 0.2f});
+        platforms.add(new float[]{0.5f-HOLE_WIDTH/2, PSC*3});
         score = 0;
+        state = GameState.PLAYING;
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        boolean tr = super.onTouchEvent(event);
+        if(tr) return true;
+        if(state == GameState.DEAD) {
+            startGame();
+            return true;
+        }
+        return false;
     }
 }
