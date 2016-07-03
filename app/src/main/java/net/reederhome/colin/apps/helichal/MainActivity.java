@@ -8,6 +8,10 @@ import android.os.Bundle;
 import android.view.Window;
 import android.view.WindowManager;
 
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdSize;
+import com.google.android.gms.ads.AdView;
+
 public class MainActivity extends AppCompatActivity {
 
     @Override
@@ -21,5 +25,15 @@ public class MainActivity extends AppCompatActivity {
         SensorManager sensors = (SensorManager) getSystemService(SENSOR_SERVICE);
         sensors.registerListener(view, sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_GAME);
         sensors.registerListener(view, sensors.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_GAME);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        AdView ad = ((AdView) findViewById(R.id.ad));
+        AdRequest req = new AdRequest.Builder()
+                .addTestDevice("67D888911D30A9627F48DA802F3BE746")
+                .build();
+        ad.loadAd(req);
     }
 }
