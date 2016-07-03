@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="net.reederhome.colin.apps.helichal.MainActivity">
+
+    <net.reederhome.colin.apps.helichal.GameView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/view"/>
 
     <com.google.android.gms.ads.AdView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/ad"
         xmlns:ads="http://schemas.android.com/apk/res-auto"
-        ads:adSize="BANNER"
+        ads:adSize="SMART_BANNER"
         ads:adUnitId="@string/adUnitID"
         />
 
-    <net.reederhome.colin.apps.helichal.GameView
-        android:layout_width="match_parent"
-        android:layout_height="fill_parent"
-        android:id="@+id/view"
-        android:layout_below="@id/ad"/>
-</RelativeLayout>
+</FrameLayout>

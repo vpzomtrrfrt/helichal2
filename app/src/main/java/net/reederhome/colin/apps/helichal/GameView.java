@@ -113,7 +113,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         }
 
                         if(state == GameState.PLAYING) {
-                            Paint scorePaint = new Paint();
+                            Paint scorePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
                             scorePaint.setTextSize(width/16);
                             cnvs.drawText("Score: "+score, 0, height-scorePaint.getFontMetrics().descent, scorePaint);
                         }
@@ -121,7 +121,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
 
                     if (state == GameState.DEAD) {
                         cnvs.drawColor(Color.argb(140, 255, 255, 255));
-                        Paint textPaint = new Paint();
+                        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
                         textPaint.setColor(Color.BLACK);
                         textPaint.setTextAlign(Paint.Align.CENTER);
                         textPaint.setTextSize(width / 7);
@@ -141,7 +141,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
 
                     if (state == GameState.HOME) {
                         drawPlayer(cnvs, 0.5f - PSC, ((float) height) / (width * 3 / 2), PSC * 2);
-                        Paint textPaint = new Paint();
+                        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
                         textPaint.setColor(Color.BLACK);
                         textPaint.setTextSize(width / 5);
                         textPaint.setTextAlign(Paint.Align.CENTER);
@@ -156,7 +156,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
 
         private void drawButton(Canvas cnvs, String type, float x, float y, float sz) {
             Paint bgPaint = new Paint();
-            Paint fgPaint = new Paint();
+            Paint fgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             fgPaint.setStyle(Paint.Style.FILL_AND_STROKE);
             switch (type) {
                 case "play":
