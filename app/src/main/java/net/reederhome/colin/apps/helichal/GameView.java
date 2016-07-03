@@ -24,7 +24,8 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private static float HOLE_WIDTH = 0.3f;
     private static float PLATFORM_HEIGHT = 0.07f;
     private static int[] COLORS = {Color.RED, Color.GREEN, Color.CYAN, 0xFFFFA500};
-    private static float MAX_TEXT_DIST = 0.12f;
+    private static float MAX_TEXT_DIST = 0.1f;
+    private static float MODE_SPACE_SCALE = 1.5f;
 
     private float x;
     private List<float[]> platforms;
@@ -32,6 +33,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private float y = 0;
     private float speed = 0.005f;
     private GameState state = GameState.HOME;
+    private GameMode mode = GameMode.NORMAL;
     private int charColor = COLORS[0];
     private float mainTextPos = 0.5f;
     private float mainTextDir = 0.0004f;
@@ -41,8 +43,10 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private float[] rMat = new float[9];
     private float[] iMat = new float[9];
     private float tilt = 0;
+    private float vtilt = 0;
     private int width;
     private int height;
+    private float modeHeight;
 
     private long lastTime;
     private Random rand = new Random();
@@ -68,13 +72,20 @@ public class GameView extends SurfaceView implements SensorEventListener {
             if (SensorManager.getRotationMatrix(rMat, iMat, gravity, magnetic)) {
                 float[] orientation = new float[3];
                 SensorManager.getOrientation(rMat, orientation);
-                tilt = orientation[deviceDefaultRotation == 3 ? 1 : 2] * 0.1f;
-                if (tilt > MAX_TILT) {
-                    tilt = MAX_TILT;
-                } else if (tilt < -MAX_TILT) {
-                    tilt = -MAX_TILT;
-                }
+                tilt = clampTilt(orientation[deviceDefaultRotation == 3 ? 1 : 2] * .1f);
+                vtilt = clampTilt(orientation[deviceDefaultRotation == 3 ? 2 : 1] * .1f);
             }
+        }
+    }
+
+    private float clampTilt(float value) {
+        if (value > MAX_TILT) {
+            return MAX_TILT;
+        } else if (value < -MAX_TILT) {
+            return -MAX_TILT;
+        }
+        else {
+            return value;
         }
     }
 
@@ -102,7 +113,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
 
                     cnvs.drawColor(Color.WHITE);
 
-                    if (state != GameState.HOME) {
+                    if (state.getDrawGame()) {
                         drawPlayer(cnvs, x, y, PSC);
 
                         Paint platformPaint = new Paint();
@@ -129,7 +140,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         textPaint.setTextSize(width / 12);
                         cnvs.drawText("Score: " + score, width / 2, height / 2 - width * .1f, textPaint);
                         textPaint.setTextSize(width / 15);
-                        String highScoreText = "High Score: " + prefs.getInt("highscore", 0);
+                        String highScoreText = "High Score: " + mode.getHighScore(prefs);
                         if(newHighScore) {
                             highScoreText = "New "+highScoreText;
                             textPaint.setColor(Color.RED);
@@ -147,6 +158,26 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         textPaint.setTextAlign(Paint.Align.CENTER);
                         cnvs.drawText("Helichal", width * mainTextPos, height / 2, textPaint);
                         drawButton(cnvs, "play", width / 3, height / 2 + width / 10, width / 6);
+                    }
+
+                    if(state == GameState.MODE_SELECT) {
+                        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                        textPaint.setTextSize(width/10);
+                        textPaint.setColor(Color.BLACK);
+                        textPaint.setTextAlign(Paint.Align.CENTER);
+                        Paint.FontMetrics metrics = textPaint.getFontMetrics();
+                        modeHeight = metrics.bottom-metrics.top;
+                        System.out.println(modeHeight);
+
+                        Paint bgPaint = new Paint();
+
+                        GameMode[] modes = GameMode.values();
+                        for(int i = 0; i < modes.length; i++) {
+                            float y = height/2 + (i-modes.length/2)*modeHeight*MODE_SPACE_SCALE;
+                            bgPaint.setColor(modes[i].getColor());
+                            cnvs.drawRect(0, y-modeHeight, width, y, bgPaint);
+                            cnvs.drawText(modes[i].getName(), width/2, y-metrics.bottom, textPaint);
+                        }
                     }
 
                     getHolder().unlockCanvasAndPost(cnvs);
@@ -228,13 +259,20 @@ public class GameView extends SurfaceView implements SensorEventListener {
         lastTime = newTime;
 
         if (state == GameState.PLAYING) {
-            genPlatforms(height);
+            genPlatforms(Math.max(height, y));
 
             x += tilt * time * speed * 1.5;
             if (x > 1 - PSC) {
                 x = 1 - PSC;
             } else if (x < 0) {
                 x = 0;
+            }
+
+            if(mode.equals(GameMode.FREE_FLY)) {
+                y += vtilt * time * speed * 1.5;
+            }
+            if(y < 0) {
+                y = 0;
             }
 
             for (int i = 0; i < platforms.size(); i++) {
@@ -262,8 +300,8 @@ public class GameView extends SurfaceView implements SensorEventListener {
 
     private void die() {
         state = GameState.DEAD;
-        if (score > prefs.getInt("highscore", 0)) {
-            prefs.edit().putInt("highscore", score).apply();
+        if (score > mode.getHighScore(prefs)) {
+            mode.saveHighScore(prefs, score);
             newHighScore = true;
         }
         else {
@@ -290,6 +328,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
 
     private void startGame() {
         x = 0.5f - PSC / 2;
+        y = 0;
         platforms = new ArrayList<>();
         platforms.add(new float[]{0.5f - HOLE_WIDTH / 2, PSC * 3});
         score = 0;
@@ -318,8 +357,18 @@ public class GameView extends SurfaceView implements SensorEventListener {
             }
         } else if (state == GameState.HOME) {
             if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 10 && ey < height / 2 + width / 10 + width / 6) {
-                startGame();
+                state = GameState.MODE_SELECT;
                 return true;
+            }
+        }
+        else if(state == GameState.MODE_SELECT) {
+            GameMode[] modes = GameMode.values();
+            for(int i = 0; i < modes.length; i++) {
+                float y = height / 2 + (i - modes.length / 2) * modeHeight * MODE_SPACE_SCALE;
+                if(ey < y && ey > y-modeHeight) {
+                    mode = modes[i];
+                    startGame();
+                }
             }
         }
         return false;
