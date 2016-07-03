@@ -36,4 +36,10 @@ public class MainActivity extends AppCompatActivity {
                 .build();
         ad.loadAd(req);
     }
+
+    @Override
+    public void onBackPressed() {
+        GameView view = (GameView) findViewById(R.id.view);
+        view.handleBackButton();
+    }
 }

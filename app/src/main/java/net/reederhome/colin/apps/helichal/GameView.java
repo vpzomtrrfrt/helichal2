@@ -399,4 +399,12 @@ public class GameView extends SurfaceView implements SensorEventListener {
         return false;
     }
 
+    public void handleBackButton() {
+        switch(state) {
+            case MODE_SELECT:
+            case DEAD:
+                state = GameState.HOME;
+                break;
+        }
+    }
 }
