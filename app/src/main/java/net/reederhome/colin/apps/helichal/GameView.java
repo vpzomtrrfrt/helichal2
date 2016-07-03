@@ -1,6 +1,7 @@
 package net.reederhome.colin.apps.helichal;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -46,11 +47,14 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private long lastTime;
     private Random rand = new Random();
     private int deviceDefaultRotation;
+    private SharedPreferences prefs;
+    private boolean newHighScore;
 
     public GameView(Context context, AttributeSet attrs) {
         super(context, attrs);
         Thread thread = new Thread(new Painter());
         thread.start();
+        prefs = context.getSharedPreferences("helichal", Context.MODE_PRIVATE);
     }
 
     @Override
@@ -107,6 +111,12 @@ public class GameView extends SurfaceView implements SensorEventListener {
                             cnvs.drawRect(0, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, platform[0] * width, (ratio - platform[1]) * width, platformPaint);
                             cnvs.drawRect((platform[0] + HOLE_WIDTH) * width, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, width, (ratio - platform[1]) * width, platformPaint);
                         }
+
+                        if(state == GameState.PLAYING) {
+                            Paint scorePaint = new Paint();
+                            scorePaint.setTextSize(width/16);
+                            cnvs.drawText("Score: "+score, 0, height-scorePaint.getFontMetrics().descent, scorePaint);
+                        }
                     }
 
                     if (state == GameState.DEAD) {
@@ -115,9 +125,16 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         textPaint.setColor(Color.BLACK);
                         textPaint.setTextAlign(Paint.Align.CENTER);
                         textPaint.setTextSize(width / 7);
-                        cnvs.drawText("You died!", width / 2, height / 2 - width * .15f, textPaint);
+                        cnvs.drawText("You died!", width / 2, height / 2 - width * .2f, textPaint);
                         textPaint.setTextSize(width / 12);
-                        cnvs.drawText("Score: " + score, width / 2, height / 2, textPaint);
+                        cnvs.drawText("Score: " + score, width / 2, height / 2 - width * .1f, textPaint);
+                        textPaint.setTextSize(width / 15);
+                        String highScoreText = "High Score: " + prefs.getInt("highscore", 0);
+                        if(newHighScore) {
+                            highScoreText = "New "+highScoreText;
+                            textPaint.setColor(Color.RED);
+                        }
+                        cnvs.drawText(highScoreText, width / 2, height / 2, textPaint);
                         drawButton(cnvs, "play", width / 3, height / 2 + width * .05f, width / 6);
                         drawButton(cnvs, "home", width / 3, height / 2 + width * .25f, width / 6);
                     }
@@ -182,7 +199,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
             switch (type) {
                 case "home":
                     cnvs.drawRect(x + sz * 7 / 8, y + sz / 2, x + sz * 9 / 8, y + sz * 3 / 4, bgPaint);
-                    cnvs.drawRect(x+sz*15/16, y+sz/4, x+sz*17/16, y+sz*3/8, bgPaint);
+                    cnvs.drawRect(x + sz * 15 / 16, y + sz / 4, x + sz * 17 / 16, y + sz * 3 / 8, bgPaint);
             }
         }
 
@@ -245,6 +262,13 @@ public class GameView extends SurfaceView implements SensorEventListener {
 
     private void die() {
         state = GameState.DEAD;
+        if (score > prefs.getInt("highscore", 0)) {
+            prefs.edit().putInt("highscore", score).apply();
+            newHighScore = true;
+        }
+        else {
+            newHighScore = false;
+        }
     }
 
     private void genPlatforms(float height) {
@@ -281,7 +305,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
     public boolean onTouchEvent(MotionEvent event) {
         boolean tr = super.onTouchEvent(event);
         if (tr) return true;
-        if(event.getActionMasked() != MotionEvent.ACTION_DOWN) return false;
+        if (event.getActionMasked() != MotionEvent.ACTION_DOWN) return false;
         float ex = event.getX();
         float ey = event.getY();
         if (state == GameState.DEAD) {
