@@ -15,6 +15,7 @@ import android.view.MotionEvent;
 import android.view.SurfaceView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -26,6 +27,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private static int[] COLORS = {Color.RED, Color.GREEN, Color.CYAN, 0xFFFFA500};
     private static float MAX_TEXT_DIST = 0.1f;
     private static float MODE_SPACE_SCALE = 1.5f;
+    private static int[] CODE_FLASHY = {2, 2, 3, 3, 0, 1, 0, 1};
 
     private float x;
     private List<float[]> platforms;
@@ -37,6 +39,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private int charColor = COLORS[0];
     private float mainTextPos = 0.5f;
     private float mainTextDir = 0.0004f;
+    private boolean flashy = false;
 
     private float[] gravity;
     private float[] magnetic;
@@ -47,6 +50,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private int width;
     private int height;
     private float modeHeight;
+    private int[] deadCode = new int[8];
 
     private long lastTime;
     private Random rand = new Random();
@@ -258,6 +262,10 @@ public class GameView extends SurfaceView implements SensorEventListener {
         long time = newTime - lastTime;
         lastTime = newTime;
 
+        if(flashy) {
+            pickColor();
+        }
+
         if (state == GameState.PLAYING) {
             genPlatforms(Math.max(height, y));
 
@@ -354,6 +362,23 @@ public class GameView extends SurfaceView implements SensorEventListener {
             } else if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 4 && ey < height / 2 + width / 4 + width / 6) {
                 state = GameState.HOME;
                 return true;
+            }
+            else {
+                float[] dists = {ex, width-ex, ey, height-ey};
+                int closest = 0;
+                for(int i = 1; i < dists.length; i++) {
+                    if(dists[i] < dists[closest]) {
+                        closest = i;
+                    }
+                }
+                System.out.println(closest);
+                for(int i = 1; i < deadCode.length; i++) {
+                    deadCode[i-1] = deadCode[i];
+                }
+                deadCode[deadCode.length-1] = closest;
+                if(Arrays.equals(deadCode, CODE_FLASHY)) {
+                    flashy = !flashy;
+                }
             }
         } else if (state == GameState.HOME) {
             if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 10 && ey < height / 2 + width / 10 + width / 6) {
