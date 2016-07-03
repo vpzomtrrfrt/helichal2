@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Typeface;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -28,6 +29,8 @@ public class GameView extends SurfaceView implements SensorEventListener {
     private static float MAX_TEXT_DIST = 0.1f;
     private static float MODE_SPACE_SCALE = 1.5f;
     private static int[] CODE_FLASHY = {2, 2, 3, 3, 0, 1, 0, 1};
+    private static float PAUSEY = .2f;
+    private static float PAUSESZ = .1f;
 
     private float x;
     private List<float[]> platforms;
@@ -87,8 +90,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
             return MAX_TILT;
         } else if (value < -MAX_TILT) {
             return -MAX_TILT;
-        }
-        else {
+        } else {
             return value;
         }
     }
@@ -127,10 +129,10 @@ public class GameView extends SurfaceView implements SensorEventListener {
                             cnvs.drawRect((platform[0] + HOLE_WIDTH) * width, ((ratio - platform[1]) - PLATFORM_HEIGHT) * width, width, (ratio - platform[1]) * width, platformPaint);
                         }
 
-                        if(state == GameState.PLAYING) {
+                        if (state != GameState.DEAD) {
                             Paint scorePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                            scorePaint.setTextSize(width/16);
-                            cnvs.drawText("Score: "+score, 0, height-scorePaint.getFontMetrics().descent, scorePaint);
+                            scorePaint.setTextSize(width / 16);
+                            cnvs.drawText("Score: " + score, 0, height - scorePaint.getFontMetrics().descent, scorePaint);
                         }
                     }
 
@@ -145,11 +147,19 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         cnvs.drawText("Score: " + score, width / 2, height / 2 - width * .1f, textPaint);
                         textPaint.setTextSize(width / 15);
                         String highScoreText = "High Score: " + mode.getHighScore(prefs);
-                        if(newHighScore) {
-                            highScoreText = "New "+highScoreText;
+                        if (newHighScore) {
+                            highScoreText = "New " + highScoreText;
                             textPaint.setColor(Color.RED);
                         }
                         cnvs.drawText(highScoreText, width / 2, height / 2, textPaint);
+                    } else if (state == GameState.PAUSED) {
+                        Paint paint = new Paint();
+                        paint.setTextSize(width / 6);
+                        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.ITALIC));
+                        paint.setTextAlign(Paint.Align.CENTER);
+                        cnvs.drawText("Paused", width / 2, height / 2 - width * .2f, paint);
+                    }
+                    if (state == GameState.DEAD || state == GameState.PAUSED) {
                         drawButton(cnvs, "play", width / 3, height / 2 + width * .05f, width / 6);
                         drawButton(cnvs, "home", width / 3, height / 2 + width * .25f, width / 6);
                     }
@@ -164,24 +174,31 @@ public class GameView extends SurfaceView implements SensorEventListener {
                         drawButton(cnvs, "play", width / 3, height / 2 + width / 10, width / 6);
                     }
 
-                    if(state == GameState.MODE_SELECT) {
+                    if (state == GameState.MODE_SELECT) {
                         Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                        textPaint.setTextSize(width/10);
+                        textPaint.setTextSize(width / 10);
                         textPaint.setColor(Color.BLACK);
                         textPaint.setTextAlign(Paint.Align.CENTER);
                         Paint.FontMetrics metrics = textPaint.getFontMetrics();
-                        modeHeight = metrics.bottom-metrics.top;
+                        modeHeight = metrics.bottom - metrics.top;
                         System.out.println(modeHeight);
 
                         Paint bgPaint = new Paint();
 
                         GameMode[] modes = GameMode.values();
-                        for(int i = 0; i < modes.length; i++) {
-                            float y = height/2 + (i-modes.length/2)*modeHeight*MODE_SPACE_SCALE;
+                        for (int i = 0; i < modes.length; i++) {
+                            float y = height / 2 + (i - modes.length / 2) * modeHeight * MODE_SPACE_SCALE;
                             bgPaint.setColor(modes[i].getColor());
-                            cnvs.drawRect(0, y-modeHeight, width, y, bgPaint);
-                            cnvs.drawText(modes[i].getName(), width/2, y-metrics.bottom, textPaint);
+                            cnvs.drawRect(0, y - modeHeight, width, y, bgPaint);
+                            cnvs.drawText(modes[i].getName(), width / 2, y - metrics.bottom, textPaint);
                         }
+                    }
+
+                    if(state == GameState.PLAYING) {
+                        Paint paint = new Paint();
+                        paint.setColor(Color.GRAY);
+                        cnvs.drawRect(width*(.95f-PAUSESZ/3), PAUSEY*width, width*.95f, (PAUSEY+PAUSESZ)*width, paint);
+                        cnvs.drawRect(width*(.95f-PAUSESZ), PAUSEY*width, width*(.95f-PAUSESZ*2/3), (PAUSEY+PAUSESZ)*width, paint);
                     }
 
                     getHolder().unlockCanvasAndPost(cnvs);
@@ -262,7 +279,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
         long time = newTime - lastTime;
         lastTime = newTime;
 
-        if(flashy) {
+        if (flashy) {
             pickColor();
         }
 
@@ -276,10 +293,10 @@ public class GameView extends SurfaceView implements SensorEventListener {
                 x = 0;
             }
 
-            if(mode.equals(GameMode.FREE_FLY)) {
+            if (mode.equals(GameMode.FREE_FLY)) {
                 y += vtilt * time * speed * 1.5;
             }
-            if(y < 0) {
+            if (y < 0) {
                 y = 0;
             }
 
@@ -311,8 +328,7 @@ public class GameView extends SurfaceView implements SensorEventListener {
         if (score > mode.getHighScore(prefs)) {
             mode.saveHighScore(prefs, score);
             newHighScore = true;
-        }
-        else {
+        } else {
             newHighScore = false;
         }
     }
@@ -355,28 +371,32 @@ public class GameView extends SurfaceView implements SensorEventListener {
         if (event.getActionMasked() != MotionEvent.ACTION_DOWN) return false;
         float ex = event.getX();
         float ey = event.getY();
-        if (state == GameState.DEAD) {
+        if (state == GameState.DEAD || state == GameState.PAUSED) {
             if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 20 && ey < height / 2 + width / 20 + width / 6) {
-                startGame();
+                if(state == GameState.DEAD) {
+                    startGame();
+                }
+                else {
+                    state = GameState.PLAYING;
+                }
                 return true;
             } else if (ex > width / 3 && ex < width * 2 / 3 && ey > height / 2 + width / 4 && ey < height / 2 + width / 4 + width / 6) {
                 state = GameState.HOME;
                 return true;
-            }
-            else {
-                float[] dists = {ex, width-ex, ey, height-ey};
+            } else {
+                float[] dists = {ex, width - ex, ey, height - ey};
                 int closest = 0;
-                for(int i = 1; i < dists.length; i++) {
-                    if(dists[i] < dists[closest]) {
+                for (int i = 1; i < dists.length; i++) {
+                    if (dists[i] < dists[closest]) {
                         closest = i;
                     }
                 }
                 System.out.println(closest);
-                for(int i = 1; i < deadCode.length; i++) {
-                    deadCode[i-1] = deadCode[i];
+                for (int i = 1; i < deadCode.length; i++) {
+                    deadCode[i - 1] = deadCode[i];
                 }
-                deadCode[deadCode.length-1] = closest;
-                if(Arrays.equals(deadCode, CODE_FLASHY)) {
+                deadCode[deadCode.length - 1] = closest;
+                if (Arrays.equals(deadCode, CODE_FLASHY)) {
                     flashy = !flashy;
                 }
             }
@@ -385,25 +405,35 @@ public class GameView extends SurfaceView implements SensorEventListener {
                 state = GameState.MODE_SELECT;
                 return true;
             }
-        }
-        else if(state == GameState.MODE_SELECT) {
+        } else if (state == GameState.MODE_SELECT) {
             GameMode[] modes = GameMode.values();
-            for(int i = 0; i < modes.length; i++) {
+            for (int i = 0; i < modes.length; i++) {
                 float y = height / 2 + (i - modes.length / 2) * modeHeight * MODE_SPACE_SCALE;
-                if(ey < y && ey > y-modeHeight) {
+                if (ey < y && ey > y - modeHeight) {
                     mode = modes[i];
                     startGame();
                 }
+            }
+        }
+        else if(state == GameState.PLAYING) {
+            if(ex > (.95f-PAUSESZ)*width && ey > PAUSEY*width && ey < (PAUSEY+PAUSESZ)*width) {
+                state = GameState.PAUSED;
             }
         }
         return false;
     }
 
     public void handleBackButton() {
-        switch(state) {
+        switch (state) {
             case MODE_SELECT:
             case DEAD:
                 state = GameState.HOME;
+                break;
+            case PLAYING:
+                state = GameState.PAUSED;
+                break;
+            case PAUSED:
+                state = GameState.PLAYING;
                 break;
         }
     }

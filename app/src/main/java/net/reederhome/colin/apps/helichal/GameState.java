@@ -4,7 +4,8 @@ public enum GameState {
     PLAYING(true),
     HOME(false),
     DEAD(true),
-    MODE_SELECT(false);
+    MODE_SELECT(false),
+    PAUSED(true);
 
     private boolean drawGame;
 
